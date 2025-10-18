@@ -17,7 +17,7 @@
     <section id="welcome">
       <h2>Paper Trade • Learn • Compete</h2>
       <p>Join ranked challenges with live markets — no real money needed.</p>
-      <button id="startBtn">Start</button>
+      <button id="startBtn">Start Trading</button>
     </section>
 
     <section id="dashboard" class="hidden">
@@ -25,25 +25,43 @@
         <select id="symbolSelect">
           <option value="bitcoin">BTC/USD</option>
           <option value="ethereum">ETH/USD</option>
-          <option value="aapl">AAPL (Apple)</option>
-          <option value="tsla">TSLA (Tesla)</option>
+          <option value="aapl">AAPL</option>
+          <option value="tsla">TSLA</option>
           <option value="gold">Gold (XAU/USD)</option>
         </select>
+
         <select id="chartType">
           <option value="candlestick">Candlestick</option>
           <option value="line">Line</option>
+          <option value="ohlc">OHLC</option>
         </select>
+
         <button id="pineBtn">Open Pine Editor</button>
       </div>
+
       <div id="chart-container"></div>
+
+      <div id="trading-panel">
+        <h3>Paper Trading</h3>
+        <div>Balance: $<span id="balance">100000</span></div>
+        <input type="number" id="tradeAmount" placeholder="Amount" />
+        <button id="buyBtn">Buy</button>
+        <button id="sellBtn">Sell</button>
+        <div>P/L: $<span id="pnl">0</span></div>
+      </div>
+
+      <div id="leaderboard">
+        <h3>Leaderboard</h3>
+        <ul id="leaderboardList"></ul>
+      </div>
     </section>
 
-    <!-- Pine modal -->
+    <!-- Pine Editor Modal -->
     <div id="pineModal" class="modal hidden">
       <div class="modal-content">
         <span id="closeModal">&times;</span>
-        <h3>Pine Editor (Coming Soon)</h3>
-        <textarea id="pineEditor" placeholder="// Pine script goes here..."></textarea>
+        <h3>Pine Editor</h3>
+        <textarea id="pineEditor" placeholder="// Pine script goes here"></textarea>
         <button id="runScriptBtn">Run Script</button>
       </div>
     </div>
@@ -51,6 +69,9 @@
 
   <script src="supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.min.js"></script>
+  <script src="chart.js"></script>
+  <script src="trades.js"></script>
+  <script src="leaderboard.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
