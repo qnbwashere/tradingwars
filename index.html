@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>TradingWars — Paper Trading</title>
 
-<!-- Supabase UMD build -->
+<!-- Supabase UMD build (works in browser) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.32.1/dist/umd/supabase.min.js"></script>
 
-<!-- CodeMirror 5 -->
+<!-- CodeMirror 5 for Pine Editor -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/codemirror.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/mode/javascript/javascript.min.js"></script>
@@ -181,7 +181,6 @@ document.getElementById('saveScript').onclick = async ()=>{
 supabase.auth.onAuthStateChange(()=>{loadUser();});
 loadUser();
 
-});
 </script>
 </body>
 </html>
