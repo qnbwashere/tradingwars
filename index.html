@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>TradingWars — Paper trading arena</title>
+<title>TradingWars — Paper Trading Arena</title>
 
 <!-- Lightweight Charts -->
 <script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
 
-<!-- Supabase JS -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<!-- Supabase UMD -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.32.1/dist/umd/supabase.min.js"></script>
 
-<!-- CodeMirror 6 (basic build) for Pine Editor -->
+<!-- CodeMirror 5 -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/codemirror.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/mode/javascript/javascript.min.js"></script>
@@ -76,22 +76,19 @@ select,input{padding:8px;border-radius:8px;border:1px solid #18304a;background:#
 <div class="card">
 <div class="controls">
 <select id="symbol">
-<option value="BTCUSDT">BTC/USDT (crypto)</option>
-<option value="AAPL">AAPL (stock)</option>
-<option value="ES=F">ES=F (E-mini S&P futures)</option>
+<option value="BTCUSDT">BTC/USDT</option>
+<option value="AAPL">AAPL</option>
+<option value="ES=F">ES=F</option>
 </select>
 <select id="interval"><option value="1m">1m</option><option value="5m">5m</option><option value="1h">1h</option></select>
 <button class="btn" id="connectBtn">Connect Live</button>
 <div style="margin-left:auto" class="small">Equity: <strong id="equityTxt">$0</strong></div>
 </div>
-
 <div id="chart"></div>
-
 <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
 <input id="qty" type="number" placeholder="Qty" value="0.01" step="any" style="width:110px"/>
 <select id="side"><option value="buy">Buy</option><option value="sell">Sell</option></select>
 <button class="btn" id="placeOrder">Place Market</button>
-<button class="btn" id="submitPnl">Submit Score</button>
 <div style="margin-left:auto" class="small">Balance: <strong id="balanceTxt">$0</strong></div>
 </div>
 </div>
@@ -99,14 +96,12 @@ select,input{padding:8px;border-radius:8px;border:1px solid #18304a;background:#
 <div class="card" style="margin-top:12px">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <h3 style="margin:0">Pine Editor</h3>
-<div class="small">Write Pine Script, save & share. (Pine *not executed* — stored & shared)</div>
+<div class="small">Write Pine Script, save & share.</div>
 </div>
 <div class="editor-wrap" id="pineEditor"></div>
 <div style="display:flex;gap:8px;margin-top:8px">
 <input id="scriptTitle" placeholder="Script title" />
 <button class="btn" id="saveScript">Save Script</button>
-<button class="btn" id="loadScripts">My Scripts</button>
-<button class="btn" id="shareScript">Get Share Link</button>
 </div>
 <div id="scriptsList" style="margin-top:8px" class="small"></div>
 </div>
@@ -116,74 +111,48 @@ select,input{padding:8px;border-radius:8px;border:1px solid #18304a;background:#
 <div class="card">
 <h3 style="margin:0 0 8px 0">Account</h3>
 <div>Balance: <strong id="balance">$100,000</strong></div>
-<div>P&L: <strong id="pnl">$0</strong></div>
 <div>Equity: <strong id="equity">$100,000</strong></div>
-<div style="margin-top:8px">
-<button class="btn" id="resetAccount">Reset Account to $100k</button>
-</div>
 </div>
 
 <div class="card">
 <h3 style="margin:0 0 8px 0">Leaderboard</h3>
 <div class="leaderboard" id="leaderboard"></div>
 </div>
-
-<div class="card">
-<h3 style="margin:0 0 8px 0">Indicator Playground</h3>
-<div class="small">Paste a small JS indicator function that receives candles and returns overlay series</div>
-<textarea id="jsIndicator" style="width:100%;height:120px">/* Example: return array of {time, value} for overlay */
-function compute(candles){
-  const out = [];
-  for(let i=0;i<candles.length;i++){
-    let sum=0, cnt=0;
-    for(let j=Math.max(0,i-9); j<=i; j++){ sum+=candles[j].close; cnt++;}
-    out.push({time:candles[i].time, value: sum/cnt});
-  }
-  return out;
-}
-</textarea>
-<div style="display:flex;gap:8px;margin-top:8px">
-<button class="btn" id="runIndicator">Run Indicator</button>
-<button class="btn" id="clearIndicator">Clear Indicator</button>
-</div>
-</div>
-
 </aside>
 </div>
 
-<div class="footer">TradingWars — Demo paper trading. Replace demo API keys in-app for broader coverage.</div>
+<div class="footer">TradingWars — Demo paper trading</div>
 </main>
 
 <script>
 document.addEventListener('DOMContentLoaded', async function(){
 
   // -----------------------------
-  // Supabase config
+  // Supabase
   // -----------------------------
   const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3aQ...";
   const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // -----------------------------
-  // DOM Elements
+  // DOM elements
   // -----------------------------
   const loginPanel = document.getElementById('loginPanel');
   const app = document.getElementById('app');
   const topbarLoggedOut = document.getElementById('topbar-loggedout');
   const topbarLoggedIn = document.getElementById('topbar-loggedin');
   const userGreeting = document.getElementById('user-greeting');
-
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
 
   // -----------------------------
-  // Button listeners
+  // Buttons
   // -----------------------------
   document.getElementById('btn-show-login').onclick = ()=>loginPanel.classList.toggle('hidden');
   document.getElementById('btn-signup').onclick = async ()=>{
     const {user,error} = await supabase.auth.signUp({email:emailInput.value, password:passwordInput.value});
     if(error) return alert(error.message);
-    alert('Signed up! Please check email.');
+    alert('Signed up! Please check your email.');
   };
   document.getElementById('btn-signin').onclick = async ()=>{
     const {data,error} = await supabase.auth.signInWithPassword({email:emailInput.value, password:passwordInput.value});
@@ -199,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async function(){
   };
 
   // -----------------------------
-  // Load user & profile
+  // Load user
   // -----------------------------
   async function loadUser(){
     const {data:userData} = await supabase.auth.getUser();
@@ -222,51 +191,4 @@ document.addEventListener('DOMContentLoaded', async function(){
   function updateBalances(balance){
     document.getElementById('balance').innerText = `$${balance.toFixed(2)}`;
     document.getElementById('balanceTxt').innerText = `$${balance.toFixed(2)}`;
-    document.getElementById('equity').innerText = `$${balance.toFixed(2)}`;
-    document.getElementById('equityTxt').innerText = `$${balance.toFixed(2)}`;
-  }
-
-  // -----------------------------
-  // Paper trading (fake prices)
-  // -----------------------------
-  document.getElementById('placeOrder').onclick = async ()=>{
-    const qty = parseFloat(document.getElementById('qty').value);
-    const side = document.getElementById('side').value;
-    const {data:userData} = await supabase.auth.getUser();
-    const user = userData.user;
-    if(!user) return alert('Not logged in');
-    const price = 100 + Math.random()*50;
-    let {data:profile} = await supabase.from('profiles').select('*').eq('id',user.id).single();
-    let balance = profile.balance;
-    if(side==='buy') balance-= qty*price; else balance+= qty*price;
-    if(balance<0) return alert('Insufficient balance!');
-    await supabase.from('profiles').update({balance}).eq('id',user.id);
-    updateBalances(balance);
-    alert(`Order executed: ${side} ${qty} @ $${price.toFixed(2)}`);
-  };
-
-  // -----------------------------
-  // Pine editor
-  // -----------------------------
-  const editor = CodeMirror(document.getElementById('pineEditor'), {value:'// write pine script', mode:'javascript', lineNumbers:true});
-  document.getElementById('saveScript').onclick = async ()=>{
-    const title = document.getElementById('scriptTitle').value||'Untitled';
-    const code = editor.getValue();
-    const {data:userData} = await supabase.auth.getUser();
-    const user = userData.user;
-    if(!user) return alert('Not logged in');
-    await supabase.from('scripts').insert({user_id:user.id,title,code});
-    alert('Script saved!');
-  };
-
-  // -----------------------------
-  // Auth state change
-  // -----------------------------
-  supabase.auth.onAuthStateChange(()=>{loadUser();});
-  loadUser();
-
-});
-</script>
-
-</body>
-</html>
+    document.getElementById('equity').innerText = `$${balance.toFixed(2)
