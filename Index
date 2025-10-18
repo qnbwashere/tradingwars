@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PaperTrade Arena — demo</title>
+  <style>
+    body{font-family: Inter, system-ui, Arial; margin:0; background:#0b1020; color:#e6eef8}
+    header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#081024}
+    h1{margin:0;font-size:18px}
+    .container{display:grid;grid-template-columns:1fr 360px;gap:12px;padding:12px;}
+    .card{background:#071226;border-radius:10px;padding:10px;box-shadow:0 6px 18px rgba(0,0,0,.6)}
+    #chart{height:420px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    button, input, select{padding:8px;border-radius:8px;border:1px solid #18304a; background:#081a2a;color:#e6eef8}
+    .side{display:flex;flex-direction:column;gap:8px}
+    .orders{max-height:240px;overflow:auto}
+    .leaderboard{max-height:180px;overflow:auto}
+    footer{padding:10px;text-align:center;color:#8aa}
+    small{color:#6f9}
+    a{color:#7be}
+  </style>
+  <!-- Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header>
+    <h1>PaperTrade Arena — demo</h1>
+    <nav style="margin-left:auto"><small>Paper trading only • Challenges & Ranked (prototype)</small></nav>
+  </header>
+
+  <div class="container">
+    <div>
+      <div class="card">
+        <div class="controls">
+          <select id="symbol">
+            <option value="BTCUSDT">BTC/USDT (crypto)</option>
+            <option value="AAPL">AAPL (stock)</option>
+            <option value="ES1!">ES Futures (simulated)</option>
+          </select>
+          <select id="interval">
+            <option value="1m">1m</option>
+            <option value="5m">5m</option>
+            <option value="1h">1h</option>
+          </select>
+          <button id="connectBtn">Connect</button>
+          <button id="resetBtn">Reset Account</button>
+        </div>
+
+        <div id="chart"></div>
+
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input id="qty" type="number" placeholder="Qty" value="0.001" step="any"/>
+          <select id="side"><option value="buy">Buy</option><option value="sell">Sell</option></select>
+          <button id="placeOrder">Place Market</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <h3 style="margin:0 0 8px 0">Orders & Positions</h3>
+        <div class="orders" id="orders"></div>
+      </div>
+
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Account</h3>
+        <div>Balance: <strong id="balance">$100,000</strong></div>
+        <div>P&L: <strong id="pnl">$0</strong></div>
+        <div>Equity: <strong id="equity">$100,000</strong></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Leaderboard (local demo)</h3>
+        <div class="leaderboard" id="leaderboard"></div>
+        <div style="margin-top:8px">
+          <input id="playerName" placeholder="Your name" />
+          <button id="submitScore">Submit Score</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Challenges</h3>
+        <p><small>Example: Survive 7 days without dropping below 80% equity.</small></p>
+        <button id="startChallenge">Start Demo Challenge</button>
+      </div>
+
+    </aside>
+  </div>
+
+  <footer>
+    Demo — not for real trading. Replace API keys and backend for production. See README for links.
+  </footer>
+
+<script>
+/* ---------------------------
+  Simple front-end paper trading demo
+  - Live crypto via Binance websocket for BTCUSDT
+  - Poll stock API for AAPL (placeholder with FINNHUB/ALPHAVANTAGE)
+  - Charting: Lightweight Charts (TradingView)
+---------------------------*/
+
+const chartContainer = document.getElementById('chart');
+const chart = LightweightCharts.createChart(chartContainer, {
+  layout: {background: {color:'#071226'}, textColor:'#e6eef8'},
+  rightPriceScale: {borderVisible:false}, timeScale:{borderVisible:false}
+});
+const candleSeries = chart.addCandlestickSeries({upColor:'#26a69a', downColor:'#ef5350', borderVisible:false});
+
+/* Demo wallet & state */
+let state = {
+  balance: 100000,
+  positions: {}, // by symbol
+  orders: [],
+  seriesData: [],
+  symbol: 'BTCUSDT',
+  interval: '1m',
+  ws: null,
+  pollTimer: null
+};
+
+function updateAccountUI(){ 
+  document.getElementById('balance').innerText = `$${state.balance.toFixed(2)}`;
+  const pnl = computePnl(); 
+  document.getElementById('pnl').innerText = `$${pnl.toFixed(2)}`;
+  document.getElementById('equity').innerText = `$${(state.balance + pnl).toFixed(2)}`;
+  renderOrders(); renderLeaderboard();
+}
+
+function computePnl(){
+  // sum unrealized for demo: position.qty * (lastPrice - avgPrice)
+  const last = latestPrice();
+  let pnl = 0;
+  for(const k in state.positions){
+    const pos = state.positions[k];
+    pnl += pos.qty * (last - pos.avgPrice);
+  }
+  return pnl;
+}
+
+function latestPrice(){ 
+  const s = state.seriesData;
+  if(!s.length) return 0;
+  return s[s.length-1].close ?? s[s.length-1].value ?? s[s.length-1].price ?? 0;
+}
+
+/* Orders UI */
+function renderOrders(){
+  const el = document.getElementById('orders');
+  el.innerHTML = '';
+  if(state.orders.length === 0) el.innerHTML = '<small>No orders yet</small>';
+  state.orders.slice().reverse().forEach(o=>{
+    const div = document.createElement('div');
+    div.style.padding='6px';
+    div.style.borderBottom='1px solid #102434';
+    div.innerHTML = `<strong>${o.side.toUpperCase()}</strong> ${o.qty} ${o.symbol} @${o.price.toFixed(2)} <small>(${new Date(o.time).toLocaleTimeString()})</small>`;
+    el.appendChild(div);
+  });
+}
+
+/* Leaderboard stored in localStorage for demo */
+function loadLeaderboard(){ return JSON.parse(localStorage.getItem('pta_leaderboard')||'[]'); }
+function saveLeaderboard(arr){ localStorage.setItem('pta_leaderboard', JSON.stringify(arr)); }
+function renderLeaderboard(){
+  const el = document.getElementById('leaderboard'); el.innerHTML='';
+  const arr = loadLeaderboard();
+  if(!arr.length){ el.innerHTML='<small>No scores yet</small>'; return;}
+  arr.slice(0,20).forEach((p,i)=>{
+    const d = document.createElement('div');
+    d.style.padding='6px'; d.style.borderBottom='1px solid #102434';
+    d.innerHTML = `${i+1}. <strong>${p.name}</strong> — Equity: $${p.equity.toFixed(2)} `;
+    el.appendChild(d);
+  });
+}
+
+/* Place a market order (simulated) */
+document.getElementById('placeOrder').addEventListener('click', ()=>{
+  const qty = parseFloat(document.getElementById('qty').value);
+  const side = document.getElementById('side').value;
+  const sym = state.symbol;
+  const price = latestPrice() || 0;
+  if(!qty || !price) return alert('No price / invalid qty');
+
+  // simple fill
+  const cost = qty * price;
+  if(side === 'buy'){
+    // reduce balance by cost
+    state.balance -= cost;
+    const pos = state.positions[sym] || {qty:0, avgPrice:0};
+    const newQty = pos.qty + qty;
+    pos.avgPrice = (pos.avgPrice*pos.qty + price*qty)/newQty;
+    pos.qty = newQty;
+    state.positions[sym] = pos;
+  } else {
+    // sell: add cash, reduce existing long
+    state.balance += cost;
+    const pos = state.positions[sym] || {qty:0, avgPrice:0};
+    pos.qty = Math.max(0, pos.qty - qty);
+    state.positions[sym] = pos;
+  }
+  state.orders.push({symbol:sym, qty, side, price, time:Date.now()});
+  updateAccountUI();
+});
+
+/* Simple challenge demo */
+document.getElementById('startChallenge').addEventListener('click', ()=>{
+  alert('Challenge started: Try to not drop below 80% equity in 7 days (demo). Leaderboards accept final equity.');
+});
+
+/* Submit score (local) */
+document.getElementById('submitScore').addEventListener('click', ()=>{
+  const name = (document.getElementById('playerName').value||'Anonymous').slice(0,30);
+  const equity = state.balance + computePnl();
+  const arr = loadLeaderboard();
+  arr.push({name, equity, time: Date.now()});
+  arr.sort((a,b)=>b.equity - a.equity);
+  saveLeaderboard(arr.slice(0,200));
+  renderLeaderboard();
+  alert('Score saved locally. For public leaderboards, configure Supabase/Firebase (see README).');
+});
+
+/* Reset */
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('Reset account?')) return;
+  state.balance = 100000; state.positions = {}; state.orders = [];
+  updateAccountUI();
+});
+
+/* Symbol selection */
+document.getElementById('symbol').addEventListener('change', (e)=> {
+  state.symbol = e.target.value;
+  connectForSymbol();
+});
+document.getElementById('interval').addEventListener('change', (e)=> {
+  state.interval = e.target.value;
+});
+
+/* Connect button toggles live feed */
+document.getElementById('connectBtn').addEventListener('click', ()=>{
+  const btn = document.getElementById('connectBtn');
+  if(btn.dataset.connected==='1'){ disconnect(); btn.innerText='Connect'; }
+  else{ connectForSymbol(); btn.innerText='Disconnect'; }
+});
+
+/* ---------- Data layers ---------- */
+
+/* 1) Crypto (BTCUSDT) via Binance websocket */
+function connectBinance(symbol){
+  disconnect(); // close any existing
+  const wsSymbol = symbol.toLowerCase();
+  const wsUrl = `wss://stream.binance.com:9443/ws/${wsSymbol}@kline_1m`; // kline stream
+  state.ws = new WebSocket(wsUrl);
+  state.ws.onopen = ()=> console.log('Binance WS open', wsUrl);
+  state.ws.onmessage = (evt)=>{
+    const data = JSON.parse(evt.data);
+    // kline payload: data.k
+    if(data && data.k){
+      const k = data.k;
+      const candle = {
+        time: Math.floor(k.t/1000),
+        open: parseFloat(k.o),
+        high: parseFloat(k.h),
+        low: parseFloat(k.l),
+        close: parseFloat(k.c)
+      };
+      pushCandle(candle);
+    }
+  };
+  state.ws.onclose = ()=> console.log('Binance WS closed');
+  state.ws.onerror = (e)=> console.error('WS err', e);
+}
+
+/* 2) Stocks (AAPL demo): POLLING REST (placeholder) */
+/* Replace FINNHUB_API_KEY or ALPHA_VANTAGE_KEY */
+const FINNHUB_API_KEY = 'REPLACE_WITH_YOUR_KEY';
+const ALPHA_VANTAGE_KEY = 'REPLACE_WITH_YOUR_KEY';
+
+async function pollStock(symbol){
+  // Example: Finnhub quote endpoint
+  // Docs: Finnhub provides realtime quote via /quote?symbol=AAPL&token=...
+  // Fallback: Alpha Vantage TIME_SERIES_INTRADAY (rate limited)
+  try{
+    if(!FINNHUB_API_KEY) throw 'No FINNHUB API KEY';
+    const resp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`);
+    if(!resp.ok) throw await resp.text();
+    const j = await resp.json();
+    // Finnhub returns c (current), o, h, l, pc (prev close)
+    const price = j.c;
+    const t = Math.floor(Date.now()/1000);
+    const candle = {time: t, open: j.o||price, high: j.h||price, low: j.l||price, close: price};
+    pushCandle(candle);
+  }catch(err){
+    console.warn('pollStock err', err);
+    // If failed, you can fallback to AlphaVantage (JSON) - note strict rate limits.
+  }
+}
+
+/* Candle buffering to chart */
+function pushCandle(candle){
+  // merge or push
+  const arr = state.seriesData;
+  if(arr.length && arr[arr.length-1].time === candle.time){
+    arr[arr.length-1] = candle;
+  } else {
+    arr.push(candle);
+    if(arr.length>5000) arr.shift();
+  }
+  candleSeries.setData(arr);
+}
+
+/* Connect logic depending on symbol */
+function connectForSymbol(){
+  const sym = state.symbol;
+  // clear existing
+  if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer=null; }
+  if(state.ws){ try{ state.ws.close(); }catch(e){} state.ws=null; }
+
+  if(sym.endsWith('USDT') || sym === 'BTCUSDT'){ // treat as crypto via Binance
+    connectBinance(sym);
+  } else {
+    // Poll a stock API every 5s (adjust to API rate limits)
+    pollStock(sym);
+    state.pollTimer = setInterval(()=> pollStock(sym), 5000);
+  }
+}
+
+/* Clean disconnect */
+function disconnect(){
+  if(state.ws){ try{ state.ws.close(); }catch(e){} state.ws=null; }
+  if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer=null; }
+}
+
+/* Initial demo candles (so chart isn't empty) */
+(function seedDemo(){
+  const now = Math.floor(Date.now()/1000);
+  const seed = [];
+  let price = 28000;
+  for(let i=60;i>0;i--){
+    const t = now - i*60;
+    const o = price;
+    const c = price + (Math.random()-0.5)*200;
+    const h = Math.max(o,c) + Math.random()*50;
+    const l = Math.min(o,c) - Math.random()*50;
+    seed.push({time:t, open: o, high:h, low:l, close:c});
+    price = c;
+  }
+  state.seriesData = seed;
+  candleSeries.setData(seed);
+})();
+
+/* initial render */
+updateAccountUI();
+
+/* Note: This demo uses public browser APIs. For a production app:
+  - Use server-side keys for any sensitive API access.
+  - Use a proper backend (Supabase/Firebase or your own) for account+leaderboard persistence.
+  - Add user auth to tie challenge progress to accounts.
+*/
+</script>
+</body>
+</html>
