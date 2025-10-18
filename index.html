@@ -20,15 +20,27 @@
     </section>
 
     <section id="dashboard" class="hidden">
-      <h2>Live Market Data</h2>
+      <h2>Live Market Dashboard</h2>
+      <div id="chart-container"></div>
       <div id="prices"></div>
+
+      <div id="editor-section">
+        <h3>Pine-like Strategy Editor</h3>
+        <textarea id="pineEditor" placeholder="// Type indicator code..." rows="6"></textarea>
+        <button id="runScriptBtn">Run Script</button>
+      </div>
+
       <button id="logoutBtn">Logout</button>
     </section>
   </main>
 
-  <!-- Local Supabase -->
+  <!-- Local Supabase file (important) -->
   <script src="supabase.min.js"></script>
-  <!-- App logic -->
+
+  <!-- Chart library -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.min.js"></script>
+
+  <!-- Main logic -->
   <script src="app.js"></script>
 </body>
 </html>
