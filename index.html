@@ -46,7 +46,7 @@ select,input{padding:8px;border-radius:8px;border:1px solid #18304a;background:#
 <body>
 <header>
 <h1>TradingWars</h1>
-<div class="small">Paper trading • Learn • Compete</div>
+<div class="small">Paper-trading • Learn • Compete</div>
 <div class="topbar" id="topbar-loggedout">
 <button class="btn" id="btn-show-login">Login / Sign up</button>
 </div>
@@ -155,22 +155,123 @@ function compute(candles){
 </main>
 
 <script>
-/* ============================
-CONFIG: Supabase project (your values)
-============================ */
-const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3cWloa3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MTE3NjUsImV4cCI6MjA3NjI4Nzc2NX0._s2xAT_HsXMvKiBX_yaQblx0bQJRoc_FCUYS5wlsQw4";
-
 /* ---------------------------
-Initialize Supabase
+CONFIG: Supabase project
 --------------------------- */
+const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3aQ...";
+const FINNHUB_KEY = "YOUR_FINNHUB_KEY"; // replace with your free key
+
 const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------------------------
-The rest of the full script from the previous message (chart, auth, paper trading, Pine Editor, indicator playground) can be pasted here.
-Due to message size, paste it directly from my earlier response to ensure all functionality works.
+AUTHENTICATION
 --------------------------- */
+const loginPanel = document.getElementById('loginPanel');
+const app = document.getElementById('app');
+const topbarLoggedOut = document.getElementById('topbar-loggedout');
+const topbarLoggedIn = document.getElementById('topbar-loggedin');
+const userGreeting = document.getElementById('user-greeting');
 
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+
+document.getElementById('btn-show-login').onclick = () => loginPanel.classList.toggle('hidden');
+
+document.getElementById('btn-signup').onclick = async () => {
+  const {user,error} = await supabase.auth.signUp({email: emailInput.value, password: passwordInput.value});
+  if(error) return alert(error.message);
+  alert('Signed up! Please check your email.');
+};
+document.getElementById('btn-signin').onclick = async () => {
+  const {data,error} = await supabase.auth.signInWithPassword({email: emailInput.value, password: passwordInput.value});
+  if(error) return alert(error.message);
+  loadUser();
+};
+document.getElementById('btn-google').onclick = async ()=> supabase.auth.signInWithOAuth({provider:'google'});
+document.getElementById('btn-logout').onclick = async ()=>{
+  await supabase.auth.signOut();
+  app.classList.add('hidden');
+  topbarLoggedIn.classList.add('hidden');
+  topbarLoggedOut.classList.remove('hidden');
+};
+
+/* ---------------------------
+LOAD USER & PROFILE
+--------------------------- */
+async function loadUser(){
+  const {data:userData} = await supabase.auth.getUser();
+  const user = userData.user;
+  if(!user) return;
+  loginPanel.classList.add('hidden');
+  topbarLoggedOut.classList.add('hidden');
+  topbarLoggedIn.classList.remove('hidden');
+  userGreeting.innerText = `Hello, ${user.email}`;
+  app.classList.remove('hidden');
+
+  let {data:profile} = await supabase.from('profiles').select('*').eq('id',user.id).single();
+  if(!profile){
+    await supabase.from('profiles').insert({id:user.id, username:user.email, balance:100000});
+    profile = {balance:100000};
+  }
+  updateBalances(profile.balance);
+  loadLeaderboard();
+}
+
+function updateBalances(balance){
+  document.getElementById('balance').innerText = `$${balance.toFixed(2)}`;
+  document.getElementById('balanceTxt').innerText = `$${balance.toFixed(2)}`;
+  document.getElementById('equity').innerText = `$${balance.toFixed(2)}`;
+  document.getElementById('equityTxt').innerText = `$${balance.toFixed(2)}`;
+}
+
+/* ---------------------------
+LEADERBOARD
+--------------------------- */
+async function loadLeaderboard(){
+  const {data,error} = await supabase.from('leaderboard').select('*').order('equity',{ascending:false}).limit(10);
+  const lb = document.getElementById('leaderboard');
+  lb.innerHTML = data.map(u=>`${u.user_id.slice(0,6)}: $${u.equity}`).join('<br>');
+}
+
+/* ---------------------------
+PAPER TRADING
+--------------------------- */
+document.getElementById('placeOrder').onclick = async ()=>{
+  const qty = parseFloat(document.getElementById('qty').value);
+  const side = document.getElementById('side').value;
+  const {data:userData} = await supabase.auth.getUser();
+  const user = userData.user;
+  if(!user) return alert('Not logged in');
+  const price = 100 + Math.random()*50;
+  let {data:profile} = await supabase.from('profiles').select('*').eq('id',user.id).single();
+  let balance = profile.balance;
+  if(side==='buy') balance-=qty*price; else balance+=qty*price;
+  if(balance<0) return alert('Insufficient balance!');
+  await supabase.from('profiles').update({balance}).eq('id',user.id);
+  updateBalances(balance);
+  alert(`Order executed: ${side} ${qty} @ $${price.toFixed(2)}`);
+};
+
+/* ---------------------------
+PINE EDITOR
+--------------------------- */
+const editor = CodeMirror(document.getElementById('pineEditor'), {value:'// write pine script', mode:'javascript', lineNumbers:true});
+document.getElementById('saveScript').onclick = async ()=>{
+  const title = document.getElementById('scriptTitle').value||'Untitled';
+  const code = editor.getValue();
+  const {data:userData} = await supabase.auth.getUser();
+  const user = userData.user;
+  if(!user) return alert('Not logged in');
+  await supabase.from('scripts').insert({user_id:user.id,title,code});
+  alert('Script saved!');
+};
+
+/* ---------------------------
+ON LOAD
+--------------------------- */
+supabase.auth.onAuthStateChange(()=>{loadUser();});
+loadUser();
 </script>
 </body>
 </html>
