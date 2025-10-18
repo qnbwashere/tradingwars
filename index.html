@@ -10,37 +10,47 @@
   <nav>
     <h1>TradingWars</h1>
     <button id="loginBtn">Login / Signup</button>
+    <button id="logoutBtn" class="hidden">Logout</button>
   </nav>
 
   <main>
     <section id="welcome">
       <h2>Paper Trade • Learn • Compete</h2>
-      <p>Join ranked challenges using live stock & crypto data — no real money needed.</p>
-      <button id="startBtn">Start Trading</button>
+      <p>Join ranked challenges with live markets — no real money needed.</p>
+      <button id="startBtn">Start</button>
     </section>
 
     <section id="dashboard" class="hidden">
-      <h2>Live Market Dashboard</h2>
+      <div class="toolbar">
+        <select id="symbolSelect">
+          <option value="bitcoin">BTC/USD</option>
+          <option value="ethereum">ETH/USD</option>
+          <option value="aapl">AAPL (Apple)</option>
+          <option value="tsla">TSLA (Tesla)</option>
+          <option value="gold">Gold (XAU/USD)</option>
+        </select>
+        <select id="chartType">
+          <option value="candlestick">Candlestick</option>
+          <option value="line">Line</option>
+        </select>
+        <button id="pineBtn">Open Pine Editor</button>
+      </div>
       <div id="chart-container"></div>
-      <div id="prices"></div>
+    </section>
 
-      <div id="editor-section">
-        <h3>Pine-like Strategy Editor</h3>
-        <textarea id="pineEditor" placeholder="// Type indicator code..." rows="6"></textarea>
+    <!-- Pine modal -->
+    <div id="pineModal" class="modal hidden">
+      <div class="modal-content">
+        <span id="closeModal">&times;</span>
+        <h3>Pine Editor (Coming Soon)</h3>
+        <textarea id="pineEditor" placeholder="// Pine script goes here..."></textarea>
         <button id="runScriptBtn">Run Script</button>
       </div>
-
-      <button id="logoutBtn">Logout</button>
-    </section>
+    </div>
   </main>
 
-  <!-- Local Supabase file (important) -->
   <script src="supabase.min.js"></script>
-
-  <!-- Chart library -->
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.min.js"></script>
-
-  <!-- Main logic -->
   <script src="app.js"></script>
 </body>
 </html>
