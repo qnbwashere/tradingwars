@@ -1,27 +1,27 @@
 body {
-  margin: 0;
   font-family: "Segoe UI", sans-serif;
-  background-color: #0d1117;
+  background: #0d1117;
   color: #e6edf3;
+  margin: 0;
+  padding: 0;
 }
 
 nav {
   background: #161b22;
-  padding: 1rem 2rem;
+  padding: 10px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #30363d;
 }
 
 button {
   background: #238636;
-  border: none;
   color: white;
-  padding: 0.6rem 1rem;
+  border: none;
   border-radius: 8px;
+  padding: 8px 14px;
   cursor: pointer;
-  font-weight: 600;
+  transition: 0.2s;
 }
 
 button:hover {
@@ -30,25 +30,28 @@ button:hover {
 
 main {
   text-align: center;
-  padding: 3rem;
+  padding: 20px;
 }
 
 .hidden {
   display: none;
 }
 
-#prices {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 2rem;
+#chart-container {
+  width: 90%;
+  height: 400px;
+  margin: 20px auto;
+  border: 1px solid #30363d;
+  border-radius: 8px;
 }
 
-.price-card {
+#pineEditor {
+  width: 80%;
   background: #161b22;
-  padding: 1rem 2rem;
-  border-radius: 10px;
+  color: #e6edf3;
   border: 1px solid #30363d;
-  width: 200px;
+  border-radius: 6px;
+  margin-top: 1rem;
+  padding: 0.5rem;
+  font-family: monospace;
 }
