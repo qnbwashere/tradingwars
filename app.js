@@ -1,53 +1,87 @@
-// ===== Supabase setup (use your own keys later) =====
-const supabaseUrl = "https://example.supabase.co";
-const supabaseKey = "public-anon-key";
+// ==== Supabase Config (YOUR REAL INSTANCE) ====
+const supabaseUrl = "https://xymgwhnskyyerwqihkqn.supabase.co";
+const supabaseKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3cWloa3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MTE3NjUsImV4cCI6MjA3NjI4Nzc2NX0._s2xAT_HsXMvKiBX_yaQblx0bQJRoc_FCUYS5wlsQw4";
 const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-// ====== DOM elements ======
+// ==== Elements ====
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const startBtn = document.getElementById("startBtn");
 const welcome = document.getElementById("welcome");
 const dashboard = document.getElementById("dashboard");
+const symbolSelect = document.getElementById("symbolSelect");
+const chartType = document.getElementById("chartType");
 
-// ====== Simple Login ======
+// ==== Auth ====
 loginBtn.addEventListener("click", async () => {
   const { data, error } = await supabaseClient.auth.signInWithOAuth({
     provider: "github",
   });
-  if (error) alert("Login failed: " + error.message);
+  if (error) console.error(error);
 });
 
 logoutBtn.addEventListener("click", async () => {
   await supabaseClient.auth.signOut();
   dashboard.classList.add("hidden");
   welcome.classList.remove("hidden");
+  logoutBtn.classList.add("hidden");
+  loginBtn.classList.remove("hidden");
 });
 
-// ====== Chart setup ======
-let chart, candleSeries;
+// Listen for auth
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    welcome.classList.add("hidden");
+    dashboard.classList.remove("hidden");
+    loginBtn.classList.add("hidden");
+    logoutBtn.classList.remove("hidden");
+    createChart(symbolSelect.value, chartType.value);
+  }
+});
 
-function createChart() {
+// ==== Chart Setup ====
+let chart, series;
+
+function createChart(symbol, type) {
   const container = document.getElementById("chart-container");
   container.innerHTML = "";
   chart = LightweightCharts.createChart(container, {
     width: container.clientWidth,
-    height: 400,
-    layout: {
-      background: { color: "#0d1117" },
-      textColor: "#e6edf3",
-    },
+    height: 500,
+    layout: { background: { color: "#0d1117" }, textColor: "#e6edf3" },
     grid: {
       vertLines: { color: "#161b22" },
       horzLines: { color: "#161b22" },
     },
   });
-  candleSeries = chart.addCandlestickSeries();
-  loadChartData();
+  if (type === "line") series = chart.addLineSeries();
+  else series = chart.addCandlestickSeries();
+  loadData(symbol);
 }
 
-async function loadChartData() {
-  try {
+async function loadData(symbol) {
+  let apiUrl = "";
+  if (symbol === "bitcoin" || symbol === "ethereum") {
+    apiUrl = `https://api.coingecko.com/api/v3/coins/${symbol}/market_chart?vs_currency=usd&days=2`;
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    const formatted = data.prices.map(([time, price]) => ({
+      time: Math.floor(time / 1000),
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    }));
+    series.setData(formatted);
+  } else if (symbol === "aapl" || symbol === "tsla") {
+    apiUrl = `https://api.api-ninjas.com/v1/stockprice?ticker=${symbol}`;
+    const res = await fetch(apiUrl, {
+      headers: { "X-Api-Key": "YOUR_API_NINJA_KEY" },
+    });
+    const data = await res.json();
+    console.log(data);
+  } else {
     const res = await fetch(
       "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=2"
     );
@@ -59,41 +93,28 @@ async function loadChartData() {
       low: price,
       close: price,
     }));
-    candleSeries.setData(formatted);
-  } catch (e) {
-    console.error("Chart load error:", e);
+    series.setData(formatted);
   }
 }
 
-// ====== Price cards ======
-async function loadPrices() {
-  const pricesDiv = document.getElementById("prices");
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd"
-    );
-    const data = await res.json();
-    pricesDiv.innerHTML = `
-      <div>BTC: $${data.bitcoin.usd}</div>
-      <div>ETH: $${data.ethereum.usd}</div>
-      <div>SOL: $${data.solana.usd}</div>
-    `;
-  } catch (e) {
-    pricesDiv.textContent = "Failed to load prices.";
-  }
-}
-
-// ====== Pine-style script runner ======
-document.getElementById("runScriptBtn").addEventListener("click", () => {
-  const code = document.getElementById("pineEditor").value.trim();
-  if (!code) return alert("Enter a script first!");
-  alert("This will soon run Pine-style indicators.\n(Currently placeholder)");
-});
-
-// ====== Start button ======
+// ==== UI Handlers ====
+symbolSelect.addEventListener("change", () =>
+  createChart(symbolSelect.value, chartType.value)
+);
+chartType.addEventListener("change", () =>
+  createChart(symbolSelect.value, chartType.value)
+);
 startBtn.addEventListener("click", () => {
-  welcome.classList.add("hidden");
-  dashboard.classList.remove("hidden");
-  createChart();
-  loadPrices();
+  alert("Please login first!");
 });
+
+// ==== Pine modal ====
+const pineBtn = document.getElementById("pineBtn");
+const pineModal = document.getElementById("pineModal");
+const closeModal = document.getElementById("closeModal");
+
+pineBtn.addEventListener("click", () => pineModal.classList.remove("hidden"));
+closeModal.addEventListener("click", () => pineModal.classList.add("hidden"));
+document
+  .getElementById("runScriptBtn")
+  .addEventListener("click", () => alert("Pine engine coming soon!"));
