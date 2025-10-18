@@ -1,14 +1,11 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>TradingWars — Paper Trading Arena</title>
+<title>TradingWars — Paper Trading</title>
 
-<!-- Lightweight Charts -->
-<script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
-
-<!-- Supabase UMD -->
+<!-- Supabase UMD build -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.32.1/dist/umd/supabase.min.js"></script>
 
 <!-- CodeMirror 5 -->
@@ -17,178 +14,174 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.14/mode/javascript/javascript.min.js"></script>
 
 <style>
-:root{
-  --bg:#071226; --card:#071226; --panel:#081727; --muted:#98b3c2; --accent:#26a69a;
-  --glass: rgba(255,255,255,0.03)
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#031023 0%, #061226 100%);color:#e6eef8}
-header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(90deg, rgba(0,0,0,0.25), transparent)}
-header h1{margin:0;font-size:18px;letter-spacing:0.6px}
-.topbar{margin-left:auto;display:flex;gap:8px;align-items:center}
-.btn{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;color:var(--muted);cursor:pointer}
-.container{display:grid;grid-template-columns:1fr 360px;gap:12px;padding:12px;max-width:1400px;margin:12px auto}
-.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.03)}
-#chart{height:520px;border-radius:8px;overflow:hidden}
-.controls{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-select,input{padding:8px;border-radius:8px;border:1px solid #18304a;background:#081a2a;color:#e6eef8}
-.side{display:flex;flex-direction:column;gap:8px}
-.orders,.leaderboard{max-height:220px;overflow:auto}
-.small{font-size:13px;color:var(--muted)}
-.editor-wrap{height:320px}
-.footer{padding:10px;text-align:center;color:#86a; font-size:13px}
-.login-panel{max-width:420px;margin:40px auto}
-.hidden{display:none}
-.flex{display:flex;gap:8px;align-items:center}
-.kbd{background:#041423;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.03)}
+body{margin:0;font-family:sans-serif;background:#071226;color:#e6eef8;}
+header{display:flex;align-items:center;padding:10px 20px;background:#0a1a2c;}
+header h1{margin:0;font-size:18px;}
+.topbar{margin-left:auto;display:flex;gap:10px;}
+.btn{padding:6px 10px;border-radius:6px;border:none;background:#0c2a44;color:#e6eef8;cursor:pointer;}
+.card{background:#081727;padding:10px;border-radius:10px;margin:10px;}
+.hidden{display:none;}
+input,select{padding:6px;border-radius:6px;border:1px solid #18304a;background:#0a1a2c;color:#e6eef8;}
+.container{display:flex;gap:12px;max-width:1200px;margin:12px auto;}
+.side{display:flex;flex-direction:column;gap:12px;width:320px;}
+.editor-wrap{height:200px;}
 </style>
 </head>
 <body>
+
 <header>
 <h1>TradingWars</h1>
-<div class="small">Paper-trading • Learn • Compete</div>
 <div class="topbar" id="topbar-loggedout">
 <button class="btn" id="btn-show-login">Login / Sign up</button>
 </div>
 <div class="topbar hidden" id="topbar-loggedin">
-<div class="small" id="user-greeting"></div>
+<div id="user-greeting" style="margin-right:12px;"></div>
 <button class="btn" id="btn-logout">Logout</button>
 </div>
 </header>
 
-<div id="loginPanel" class="card login-panel hidden">
-<h3>Sign in or create account</h3>
-<div style="display:flex;gap:8px;margin-bottom:8px">
-<input id="email" placeholder="Email" />
-<input id="password" placeholder="Password" type="password" />
-</div>
-<div style="display:flex;gap:8px;margin-bottom:8px">
+<div id="loginPanel" class="card hidden">
+<h3>Login / Sign up</h3>
+<input id="email" placeholder="Email"/><br/><br/>
+<input id="password" placeholder="Password" type="password"/><br/><br/>
 <button class="btn" id="btn-signup">Sign up</button>
 <button class="btn" id="btn-signin">Sign in</button>
-<button class="btn" id="btn-google">Sign in with Google</button>
-</div>
-<div class="small">By signing up you get a demo balance of $100,000 to paper trade.</div>
+<button class="btn" id="btn-google">Google OAuth</button>
 </div>
 
 <main id="app" class="hidden">
 <div class="container">
-<div>
+<div style="flex:1">
 <div class="card">
-<div class="controls">
-<select id="symbol">
-<option value="BTCUSDT">BTC/USDT</option>
-<option value="AAPL">AAPL</option>
-<option value="ES=F">ES=F</option>
-</select>
-<select id="interval"><option value="1m">1m</option><option value="5m">5m</option><option value="1h">1h</option></select>
-<button class="btn" id="connectBtn">Connect Live</button>
-<div style="margin-left:auto" class="small">Equity: <strong id="equityTxt">$0</strong></div>
-</div>
-<div id="chart"></div>
-<div style="display:flex;gap:8px;margin-top:10px;align-items:center">
-<input id="qty" type="number" placeholder="Qty" value="0.01" step="any" style="width:110px"/>
+<h3>Paper Trading</h3>
+<div>
+<input id="qty" type="number" placeholder="Qty" value="0.01" step="any"/>
 <select id="side"><option value="buy">Buy</option><option value="sell">Sell</option></select>
 <button class="btn" id="placeOrder">Place Market</button>
-<div style="margin-left:auto" class="small">Balance: <strong id="balanceTxt">$0</strong></div>
 </div>
+<div>Balance: <span id="balanceTxt">$0</span> | Equity: <span id="equityTxt">$0</span></div>
 </div>
 
-<div class="card" style="margin-top:12px">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<h3 style="margin:0">Pine Editor</h3>
-<div class="small">Write Pine Script, save & share.</div>
-</div>
+<div class="card">
+<h3>Pine Editor</h3>
 <div class="editor-wrap" id="pineEditor"></div>
-<div style="display:flex;gap:8px;margin-top:8px">
-<input id="scriptTitle" placeholder="Script title" />
+<input id="scriptTitle" placeholder="Script title"/>
 <button class="btn" id="saveScript">Save Script</button>
-</div>
-<div id="scriptsList" style="margin-top:8px" class="small"></div>
+<div id="scriptsList"></div>
 </div>
 </div>
 
 <aside class="side">
 <div class="card">
-<h3 style="margin:0 0 8px 0">Account</h3>
-<div>Balance: <strong id="balance">$100,000</strong></div>
-<div>Equity: <strong id="equity">$100,000</strong></div>
+<h3>Account</h3>
+<div>Balance: <span id="balance">$0</span></div>
+<div>Equity: <span id="equity">$0</span></div>
 </div>
-
 <div class="card">
-<h3 style="margin:0 0 8px 0">Leaderboard</h3>
-<div class="leaderboard" id="leaderboard"></div>
+<h3>Leaderboard</h3>
+<div id="leaderboard"></div>
 </div>
 </aside>
 </div>
-
-<div class="footer">TradingWars — Demo paper trading</div>
 </main>
 
 <script>
 document.addEventListener('DOMContentLoaded', async function(){
 
-  // -----------------------------
-  // Supabase
-  // -----------------------------
-  const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3aQ...";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ------------------ Supabase ------------------
+const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3aQ...";
+const supabase = supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
-  // -----------------------------
-  // DOM elements
-  // -----------------------------
-  const loginPanel = document.getElementById('loginPanel');
-  const app = document.getElementById('app');
-  const topbarLoggedOut = document.getElementById('topbar-loggedout');
-  const topbarLoggedIn = document.getElementById('topbar-loggedin');
-  const userGreeting = document.getElementById('user-greeting');
-  const emailInput = document.getElementById('email');
-  const passwordInput = document.getElementById('password');
+// ------------------ DOM ------------------
+const loginPanel = document.getElementById('loginPanel');
+const app = document.getElementById('app');
+const topbarLoggedOut = document.getElementById('topbar-loggedout');
+const topbarLoggedIn = document.getElementById('topbar-loggedin');
+const userGreeting = document.getElementById('user-greeting');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
 
-  // -----------------------------
-  // Buttons
-  // -----------------------------
-  document.getElementById('btn-show-login').onclick = ()=>loginPanel.classList.toggle('hidden');
-  document.getElementById('btn-signup').onclick = async ()=>{
-    const {user,error} = await supabase.auth.signUp({email:emailInput.value, password:passwordInput.value});
-    if(error) return alert(error.message);
-    alert('Signed up! Please check your email.');
-  };
-  document.getElementById('btn-signin').onclick = async ()=>{
-    const {data,error} = await supabase.auth.signInWithPassword({email:emailInput.value, password:passwordInput.value});
-    if(error) return alert(error.message);
-    loadUser();
-  };
-  document.getElementById('btn-google').onclick = async ()=> supabase.auth.signInWithOAuth({provider:'google'});
-  document.getElementById('btn-logout').onclick = async ()=>{
-    await supabase.auth.signOut();
-    app.classList.add('hidden');
-    topbarLoggedIn.classList.add('hidden');
-    topbarLoggedOut.classList.remove('hidden');
-  };
+// ------------------ Buttons ------------------
+document.getElementById('btn-show-login').onclick = ()=>loginPanel.classList.toggle('hidden');
+document.getElementById('btn-signup').onclick = async ()=>{
+  const {user,error} = await supabase.auth.signUp({email:emailInput.value,password:passwordInput.value});
+  if(error) return alert(error.message);
+  alert('Signed up! Check your email.');
+};
+document.getElementById('btn-signin').onclick = async ()=>{
+  const {data,error} = await supabase.auth.signInWithPassword({email:emailInput.value,password:passwordInput.value});
+  if(error) return alert(error.message);
+  loadUser();
+};
+document.getElementById('btn-google').onclick = async ()=> supabase.auth.signInWithOAuth({provider:'google'});
+document.getElementById('btn-logout').onclick = async ()=>{
+  await supabase.auth.signOut();
+  app.classList.add('hidden');
+  topbarLoggedIn.classList.add('hidden');
+  topbarLoggedOut.classList.remove('hidden');
+};
 
-  // -----------------------------
-  // Load user
-  // -----------------------------
-  async function loadUser(){
-    const {data:userData} = await supabase.auth.getUser();
-    const user = userData.user;
-    if(!user) return;
-    loginPanel.classList.add('hidden');
-    topbarLoggedOut.classList.add('hidden');
-    topbarLoggedIn.classList.remove('hidden');
-    userGreeting.innerText = `Hello, ${user.email}`;
-    app.classList.remove('hidden');
+// ------------------ Load User ------------------
+async function loadUser(){
+  const {data:userData} = await supabase.auth.getUser();
+  const user = userData.user;
+  if(!user) return;
+  loginPanel.classList.add('hidden');
+  topbarLoggedOut.classList.add('hidden');
+  topbarLoggedIn.classList.remove('hidden');
+  userGreeting.innerText = `Hello, ${user.email}`;
+  app.classList.remove('hidden');
 
-    let {data:profile} = await supabase.from('profiles').select('*').eq('id',user.id).single();
-    if(!profile){
-      await supabase.from('profiles').insert({id:user.id, username:user.email, balance:100000});
-      profile = {balance:100000};
-    }
-    updateBalances(profile.balance);
+  let {data:profile} = await supabase.from('profiles').select('*').eq('id',user.id).single();
+  if(!profile){
+    await supabase.from('profiles').insert({id:user.id,username:user.email,balance:100000});
+    profile={balance:100000};
   }
+  updateBalances(profile.balance);
+}
 
-  function updateBalances(balance){
-    document.getElementById('balance').innerText = `$${balance.toFixed(2)}`;
-    document.getElementById('balanceTxt').innerText = `$${balance.toFixed(2)}`;
-    document.getElementById('equity').innerText = `$${balance.toFixed(2)
+function updateBalances(balance){
+  document.getElementById('balance').innerText=`$${balance.toFixed(2)}`;
+  document.getElementById('balanceTxt').innerText=`$${balance.toFixed(2)}`;
+  document.getElementById('equity').innerText=`$${balance.toFixed(2)}`;
+  document.getElementById('equityTxt').innerText=`$${balance.toFixed(2)}`;
+}
+
+// ------------------ Paper Trading ------------------
+document.getElementById('placeOrder').onclick = async ()=>{
+  const qty=parseFloat(document.getElementById('qty').value);
+  const side=document.getElementById('side').value;
+  const {data:userData}=await supabase.auth.getUser();
+  const user=userData.user;
+  if(!user) return alert('Not logged in');
+  const price=100+Math.random()*50;
+  let {data:profile}=await supabase.from('profiles').select('*').eq('id',user.id).single();
+  let balance=profile.balance;
+  if(side==='buy') balance-=qty*price; else balance+=qty*price;
+  if(balance<0) return alert('Insufficient balance!');
+  await supabase.from('profiles').update({balance}).eq('id',user.id);
+  updateBalances(balance);
+  alert(`Order executed: ${side} ${qty} @ $${price.toFixed(2)}`);
+};
+
+// ------------------ Pine Editor ------------------
+const editor=CodeMirror(document.getElementById('pineEditor'),{value:'// write pine script',mode:'javascript',lineNumbers:true});
+document.getElementById('saveScript').onclick = async ()=>{
+  const title=document.getElementById('scriptTitle').value||'Untitled';
+  const code=editor.getValue();
+  const {data:userData}=await supabase.auth.getUser();
+  const user=userData.user;
+  if(!user) return alert('Not logged in');
+  await supabase.from('scripts').insert({user_id:user.id,title,code});
+  alert('Script saved!');
+};
+
+// ------------------ Auth state change ------------------
+supabase.auth.onAuthStateChange(()=>{loadUser();});
+loadUser();
+
+});
+</script>
+</body>
+</html>
