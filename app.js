@@ -1,23 +1,21 @@
-// ===== Supabase Config =====
-const SUPABASE_URL = "https://xymgwhnskyyerwqihkqn.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5bWd3aG5za3l5ZXJ3cWloa3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MTE3NjUsImV4cCI6MjA3NjI4Nzc2NX0._s2xAT_HsXMvKiBX_yaQblx0bQJRoc_FCUYS5wlsQw4";
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ===== Supabase setup (use your own keys later) =====
+const supabaseUrl = "https://example.supabase.co";
+const supabaseKey = "public-anon-key";
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-// ===== DOM Elements =====
+// ====== DOM elements ======
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const startBtn = document.getElementById("startBtn");
 const welcome = document.getElementById("welcome");
 const dashboard = document.getElementById("dashboard");
-const pricesDiv = document.getElementById("prices");
 
-// ===== Auth =====
+// ====== Simple Login ======
 loginBtn.addEventListener("click", async () => {
-  const email = prompt("Enter your email:");
-  if (!email) return;
-  const { error } = await supabaseClient.auth.signInWithOtp({ email });
+  const { data, error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "github",
+  });
   if (error) alert("Login failed: " + error.message);
-  else alert("Check your email for a magic login link!");
 });
 
 logoutBtn.addEventListener("click", async () => {
@@ -26,33 +24,76 @@ logoutBtn.addEventListener("click", async () => {
   welcome.classList.remove("hidden");
 });
 
-// ===== Start Trading =====
-startBtn.addEventListener("click", async () => {
-  welcome.classList.add("hidden");
-  dashboard.classList.remove("hidden");
-  fetchPrices();
-  setInterval(fetchPrices, 15000); // update every 15 seconds
-});
+// ====== Chart setup ======
+let chart, candleSeries;
 
-// ===== Fetch Market Prices =====
-async function fetchPrices() {
+function createChart() {
+  const container = document.getElementById("chart-container");
+  container.innerHTML = "";
+  chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 400,
+    layout: {
+      background: { color: "#0d1117" },
+      textColor: "#e6edf3",
+    },
+    grid: {
+      vertLines: { color: "#161b22" },
+      horzLines: { color: "#161b22" },
+    },
+  });
+  candleSeries = chart.addCandlestickSeries();
+  loadChartData();
+}
+
+async function loadChartData() {
   try {
-    const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tesla,nasdaq-100&vs_currencies=usd"
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=2"
     );
-    const data = await response.json();
-    pricesDiv.innerHTML = "";
-    for (const [symbol, info] of Object.entries(data)) {
-      const div = document.createElement("div");
-      div.classList.add("price-card");
-      div.innerHTML = `
-        <h3>${symbol.toUpperCase()}</h3>
-        <p>$${info.usd.toLocaleString()}</p>
-      `;
-      pricesDiv.appendChild(div);
-    }
-  } catch (err) {
-    console.error("Error fetching prices:", err);
-    pricesDiv.innerHTML = "<p>Error loading data.</p>";
+    const data = await res.json();
+    const formatted = data.prices.map(([time, price]) => ({
+      time: Math.floor(time / 1000),
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    }));
+    candleSeries.setData(formatted);
+  } catch (e) {
+    console.error("Chart load error:", e);
   }
 }
+
+// ====== Price cards ======
+async function loadPrices() {
+  const pricesDiv = document.getElementById("prices");
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+    );
+    const data = await res.json();
+    pricesDiv.innerHTML = `
+      <div>BTC: $${data.bitcoin.usd}</div>
+      <div>ETH: $${data.ethereum.usd}</div>
+      <div>SOL: $${data.solana.usd}</div>
+    `;
+  } catch (e) {
+    pricesDiv.textContent = "Failed to load prices.";
+  }
+}
+
+// ====== Pine-style script runner ======
+document.getElementById("runScriptBtn").addEventListener("click", () => {
+  const code = document.getElementById("pineEditor").value.trim();
+  if (!code) return alert("Enter a script first!");
+  alert("This will soon run Pine-style indicators.\n(Currently placeholder)");
+});
+
+// ====== Start button ======
+startBtn.addEventListener("click", () => {
+  welcome.classList.add("hidden");
+  dashboard.classList.remove("hidden");
+  createChart();
+  loadPrices();
+});
